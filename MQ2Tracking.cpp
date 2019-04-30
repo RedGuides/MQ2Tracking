@@ -89,7 +89,7 @@ public:
          if (Message==XWM_CLOSE) {
             CreateTrackingWindow();
             ((CXWnd*)this)->Show(1,1);
-            dShow=1;
+            SetVisible(true);
             return 1;
          }
       }
@@ -192,7 +192,7 @@ PLUGIN_API VOID OnPulse(VOID)
       }
       if (TrackingWnd->AutoUpdateButton->Checked && ((clock() - lastRefresh) > (RefreshTimer * CLOCKS_PER_SEC))) {
          if (TrackingWnd) {
-            if (TrackingWnd->dShow) {
+            if (TrackingWnd->IsVisible()) {
                ReloadSpawn();
          lastRefresh = clock();
       }
@@ -235,7 +235,7 @@ void CreateTrackingWindow()
    if (pSidlMgr->FindScreenPieceTemplate("TrackingWnd")) {
       if (!TrackingWnd)
       TrackingWnd = new CMyTrackingWnd;
-      SetCXStr(&(TrackingWnd->DoneButton->WindowText),"Refresh");
+      TrackingWnd->DoneButton->CSetWindowText("Refresh");
       TrackingWnd->TrackSortCombo->DeleteAll();
       TrackingWnd->TrackSortCombo->SetColors(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
       TrackingWnd->TrackSortCombo->InsertChoice("ID");
@@ -276,39 +276,40 @@ void DestroyTrackingWindow()
 
 void ReadWindowINI(PCSIDLWND pWindow)
 {
-   CHAR Buffer[MAX_STRING] = {0};
-   if (!pWindow)
-      return;
-   pWindow->Location.top      = GetPrivateProfileInt("Settings","ChatTop",      357,INIFileName);
-   pWindow->Location.bottom   = GetPrivateProfileInt("Settings","ChatBottom",      620,INIFileName);
-   pWindow->Location.left      = GetPrivateProfileInt("Settings","ChatLeft",      164,INIFileName);
-   pWindow->Location.right    = GetPrivateProfileInt("Settings","ChatRight",      375,INIFileName);
-   pWindow->Locked             = (GetPrivateProfileInt("Settings","Locked",         0,INIFileName) ? true:false);
-   pWindow->Fades             = (GetPrivateProfileInt("Settings","Fades",         1,INIFileName) ? true:false);
-   pWindow->FadeDelay       = GetPrivateProfileInt("Settings","Delay",         2000,INIFileName);
-   pWindow->FadeDuration       = GetPrivateProfileInt("Settings","Duration",      500,INIFileName);
-   pWindow->Alpha            = GetPrivateProfileInt("Settings","Alpha",         255,INIFileName);
-   pWindow->FadeToAlpha      = GetPrivateProfileInt("Settings","FadeToAlpha",   255,INIFileName);
-   pWindow->BGType            = GetPrivateProfileInt("Settings","BGType",         1,INIFileName);
+	CHAR Buffer[MAX_STRING] = { 0 };
+	if (!pWindow)
+		return;
+	pWindow->SetLocation({ (LONG)GetPrivateProfileInt("Settings","ChatLeft",      164,INIFileName),
+		(LONG)GetPrivateProfileInt("Settings","ChatTop",      357,INIFileName),
+		(LONG)GetPrivateProfileInt("Settings","ChatRight",      375,INIFileName),
+		(LONG)GetPrivateProfileInt("Settings","ChatBottom",      620,INIFileName) });
+
+	pWindow->SetLocked((GetPrivateProfileInt("Settings", "Locked", 0, INIFileName) ? true : false));
+	pWindow->SetFades((GetPrivateProfileInt("Settings", "Fades", 1, INIFileName) ? true : false));
+	pWindow->SetFadeDelay(GetPrivateProfileInt("Settings", "Delay", 2000, INIFileName));
+	pWindow->SetFadeDuration(GetPrivateProfileInt("Settings", "Duration", 500, INIFileName));
+	pWindow->SetAlpha(GetPrivateProfileInt("Settings", "Alpha", 255, INIFileName));
+	pWindow->SetFadeToAlpha(GetPrivateProfileInt("Settings", "FadeToAlpha", 255, INIFileName));
+	pWindow->SetBGType(GetPrivateProfileInt("Settings", "BGType", 1, INIFileName));
 	ARGBCOLOR col = { 0 };
-	col.ARGB = pWindow->BGColor;
+	col.ARGB = pWindow->GetBGColor();
 	col.A = GetPrivateProfileInt("Settings", "BGTint.alpha", 255, INIFileName);
 	col.R = GetPrivateProfileInt("Settings", "BGTint.red", 0, INIFileName);
-	col.G =  GetPrivateProfileInt("Settings", "BGTint.green", 0, INIFileName);
+	col.G = GetPrivateProfileInt("Settings", "BGTint.green", 0, INIFileName);
 	col.B = GetPrivateProfileInt("Settings", "BGTint.blue", 0, INIFileName);
-   ((CMyTrackingWnd*)pWindow)->FilterRedButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowRed",      0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterYellowButton->SetCheck(1 & GetPrivateProfileInt("Filters","ShowYellow",   0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterWhiteButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowWhite",   0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterBlueButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowBlue",      0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterLBlueButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowLBlue",   0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterGreenButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowGreen",   0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->FilterGrayButton->SetCheck   (1 & GetPrivateProfileInt("Filters","ShowGray",   0,INIFileName));         
-   ((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->SetChoice(GetPrivateProfileInt("Filters","Players",   0,INIFileName));
-   ((CMyTrackingWnd*)pWindow)->TrackSortCombo->SetChoice(GetPrivateProfileInt("Filters","Sort",   0,INIFileName));
-   TrackDist      = GetPrivateProfileInt("Settings","TrackDistance",   75,INIFileName);
-   GetPrivateProfileString("Settings","DisplayTpl", "[%l %C] %N (%R)", szNameTemplate, MAX_STRING, INIFileName);
-   ((CMyTrackingWnd*)pWindow)->AutoUpdateButton->SetCheck(1 & GetPrivateProfileInt("Settings", "AutoRefresh", 0, INIFileName));
-   RefreshTimer = GetPrivateProfileInt("Settings", "RefreshDelay", 60, INIFileName);
+	((CMyTrackingWnd*)pWindow)->FilterRedButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowRed", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterYellowButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowYellow", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterWhiteButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowWhite", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterBlueButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowBlue", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterLBlueButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowLBlue", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterGreenButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowGreen", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->FilterGrayButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowGray", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->SetChoice(GetPrivateProfileInt("Filters", "Players", 0, INIFileName));
+	((CMyTrackingWnd*)pWindow)->TrackSortCombo->SetChoice(GetPrivateProfileInt("Filters", "Sort", 0, INIFileName));
+	TrackDist = GetPrivateProfileInt("Settings", "TrackDistance", 75, INIFileName);
+	GetPrivateProfileString("Settings", "DisplayTpl", "[%l %C] %N (%R)", szNameTemplate, MAX_STRING, INIFileName);
+	((CMyTrackingWnd*)pWindow)->AutoUpdateButton->SetCheck(1 & GetPrivateProfileInt("Settings", "AutoRefresh", 0, INIFileName));
+	RefreshTimer = GetPrivateProfileInt("Settings", "RefreshDelay", 60, INIFileName);
 }
 
 void WriteWindowINI(PCSIDLWND pWindow)
@@ -316,43 +317,43 @@ void WriteWindowINI(PCSIDLWND pWindow)
    CHAR szTemp[MAX_STRING] = {0};
    if (!pWindow)
       return;
-   if (pWindow->Minimized) {
-      _itoa_s(pWindow->OldLocation.top, szTemp, 10);
+   if (pWindow->IsMinimized()) {
+      _itoa_s(pWindow->GetOldLocation().top, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatTop", szTemp, INIFileName);
-      _itoa_s(pWindow->OldLocation.bottom, szTemp, 10);
+      _itoa_s(pWindow->GetOldLocation().bottom, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatBottom", szTemp, INIFileName);
-      _itoa_s(pWindow->OldLocation.left, szTemp, 10);
+      _itoa_s(pWindow->GetOldLocation().left, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatLeft", szTemp, INIFileName);
-      _itoa_s(pWindow->OldLocation.right, szTemp, 10);
+      _itoa_s(pWindow->GetOldLocation().right, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatRight", szTemp, INIFileName);
    }
    else {
-      _itoa_s(pWindow->Location.top, szTemp, 10);
+      _itoa_s(pWindow->GetLocation().top, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatTop", szTemp, INIFileName);
-      _itoa_s(pWindow->Location.bottom, szTemp, 10);
+      _itoa_s(pWindow->GetLocation().bottom, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatBottom", szTemp, INIFileName);
-      _itoa_s(pWindow->Location.left, szTemp, 10);
+      _itoa_s(pWindow->GetLocation().left, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatLeft", szTemp, INIFileName);
-      _itoa_s(pWindow->Location.right, szTemp, 10);
+      _itoa_s(pWindow->GetLocation().right, szTemp, 10);
       WritePrivateProfileString("Settings", "ChatRight", szTemp, INIFileName);
    }
-   _itoa_s(pWindow->Locked, szTemp, 10);
+   _itoa_s(pWindow->IsLocked(), szTemp, 10);
    WritePrivateProfileString("Settings", "Locked", szTemp, INIFileName);
-   _itoa_s(pWindow->Fades, szTemp, 10);
+   _itoa_s(pWindow->GetFades(), szTemp, 10);
    WritePrivateProfileString("Settings", "Fades", szTemp, INIFileName);
-   _itoa_s(pWindow->FadeDelay, szTemp, 10);
+   _itoa_s(pWindow->GetFadeDelay(), szTemp, 10);
    WritePrivateProfileString("Settings", "Delay", szTemp, INIFileName);
-   _itoa_s(pWindow->FadeDuration, szTemp, 10);
+   _itoa_s(pWindow->GetFadeDuration(), szTemp, 10);
    WritePrivateProfileString("Settings", "Duration", szTemp, INIFileName);
-   _itoa_s(pWindow->Alpha, szTemp, 10);
+   _itoa_s(pWindow->GetAlpha(), szTemp, 10);
    WritePrivateProfileString("Settings", "Alpha", szTemp, INIFileName);
-   _itoa_s(pWindow->FadeToAlpha, szTemp, 10);
+   _itoa_s(pWindow->GetFadeToAlpha(), szTemp, 10);
    WritePrivateProfileString("Settings", "FadeToAlpha", szTemp, INIFileName);
-   _itoa_s(pWindow->BGType, szTemp, 10);
+   _itoa_s(pWindow->GetBGType(), szTemp, 10);
    WritePrivateProfileString("Settings", "BGType", szTemp, INIFileName);
 
 	ARGBCOLOR col = { 0 };
-	col.ARGB = pWindow->BGColor;
+	col.ARGB = pWindow->GetBGColor();
    _itoa_s(col.A, szTemp, 10);
    WritePrivateProfileString("Settings", "BGTint.alpha", szTemp, INIFileName);
    _itoa_s(col.R, szTemp, 10);
@@ -661,7 +662,7 @@ VOID Track(PSPAWNINFO pChar, PCHAR szLine)
    else if (!strcmp(Arg1, "players")) {
       GetArg(Arg2,szLine,2);
       if (TrackingWnd)
-         if (TrackingWnd->dShow)
+         if (TrackingWnd->IsVisible())
             DestroyTrackingWindow();
          else {
             ((CXWnd*)TrackingWnd)->Show(1,1);
@@ -700,7 +701,7 @@ VOID Track(PSPAWNINFO pChar, PCHAR szLine)
       return;
    }
    if (TrackingWnd)
-      if (TrackingWnd->dShow)
+      if (TrackingWnd->IsVisible())
          DestroyTrackingWindow();
       else {
          ((CXWnd*)TrackingWnd)->Show(1,1);
@@ -732,7 +733,8 @@ VOID TrackSpawn()
             CleanupName(szName, MAX_STRING, FALSE),
             szDirection[Direction],
             DistanceToSpawn(pChar,pTrackSpawn));
-         if (TrackingWnd) SetCXStr(&(TrackingWnd->DoneButton->WindowText),"Cancel");
+         if (TrackingWnd)
+			 TrackingWnd->DoneButton->CSetWindowText("Cancel");
       }
       else {
 		 strcpy_s(szName, pTrackSpawn->Name);
@@ -747,7 +749,8 @@ VOID TrackSpawn()
 VOID StopTracking(PSPAWNINFO pChar, PCHAR szLine)
 {
    DebugSpewAlways("MQ2Tracking::StopTracking:1");
-   if (TrackingWnd) SetCXStr(&(TrackingWnd->DoneButton->WindowText),"Refresh");
+   if (TrackingWnd)
+	   TrackingWnd->DoneButton->CSetWindowText("Refresh");
    DebugSpewAlways("MQ2Tracking::StopTracking:2");
    pTrackSpawn = NULL;
    DebugSpewAlways("MQ2Tracking::StopTracking:3");

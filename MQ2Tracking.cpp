@@ -19,8 +19,8 @@ bool IsTracking = false;
 int pulsedelay = 0;
 int TrackDist = 75;
 int RefreshTimer = 60;
-CHAR szNameTemplate[MAX_STRING] = { 0 };
-CHAR szCustomSearch[MAX_STRING] = { 0 };
+char szNameTemplate[MAX_STRING] = { 0 };
+char szCustomSearch[MAX_STRING] = { 0 };
 clock_t lastRefresh = clock();
 PSPAWNINFO pTrackSpawn;
 
@@ -36,7 +36,7 @@ PCHAR szDirection[] = {
 };
 
 typedef struct _TRACKSORT {
-	CHAR Name[64];
+	char Name[64];
 	DWORD SpawnID;
 } TRACKSORT, *PTRACKSORT;
 
@@ -79,7 +79,7 @@ public:
 		}
 		if (pWnd == (CXWnd*)TrackButton) {
 			if (Message==XWM_LCLICK) {
-				CHAR szLine[MAX_STRING] = {0};
+				char szLine[MAX_STRING] = {0};
 				pTrackSpawn = (PSPAWNINFO)GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID);
 				if (pTrackSpawn) {
 					WriteChatColor("Tracking started.");
@@ -89,7 +89,7 @@ public:
 		}
 		else if (pWnd == (CXWnd*)DoneButton) {
 			if (Message==XWM_LCLICK) {
-				StopTracking(NULL,NULL);
+				StopTracking(nullptr, nullptr);
 				ReloadSpawn();
 			}
 		}
@@ -104,9 +104,9 @@ public:
 				PSPAWNINFO pSpawnTrack = (PSPAWNINFO)GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID);
 				if (pSpawnTrack) {
 					if (IsTargetable(pSpawnTrack)) {
-				PSPAWNINFO *psTarget = NULL;
+						PSPAWNINFO *psTarget = nullptr;
 						if (ppTarget) {
-				psTarget = (PSPAWNINFO*)ppTarget;
+							psTarget = (PSPAWNINFO*)ppTarget;
 							*psTarget = pSpawnTrack;
 							szMsg[0] = 0;
 						}
@@ -187,7 +187,7 @@ PLUGIN_API void OnRemoveSpawn(PSPAWNINFO pSpawn)
 {
 	if (gGameState == GAMESTATE_INGAME && pTrackSpawn)
 		if (pNewSpawn == pTrackSpawn)
-		StopTracking(NULL,NULL);
+			StopTracking(nullptr, nullptr);
 	}
 
 PLUGIN_API void OnCleanUI()
@@ -258,7 +258,7 @@ void DestroyTrackingWindow()
 
 void ReadWindowINI(PCSIDLWND pWindow)
 {
-	CHAR Buffer[MAX_STRING] = { 0 };
+	char Buffer[MAX_STRING] = { 0 };
 	if (!pWindow)
 		return;
 	pWindow->SetLocation({ (LONG)GetPrivateProfileInt("Settings","ChatLeft", 164,INIFileName),
@@ -296,7 +296,7 @@ void ReadWindowINI(PCSIDLWND pWindow)
 
 void WriteWindowINI(PCSIDLWND pWindow)
 {
-	CHAR szTemp[MAX_STRING] = {0};
+	char szTemp[MAX_STRING] = {0};
 	if (!pWindow)
 		return;
 	if (pWindow->IsMinimized()) {
@@ -421,7 +421,7 @@ static int pTrackSORTCompare(const void *A, const void *B)
 	return _stricmp(CleanupName(SpawnA->Name, MAX_STRING), CleanupName(SpawnB->Name, MAX_STRING));
 }
 
-VOID ReloadSpawn()
+void ReloadSpawn()
 {
 	if (!TrackingWnd)
 		return;
@@ -439,7 +439,7 @@ VOID ReloadSpawn()
 			pSearchSpawn->SpawnType = PC;
 			break;
 		case 2:
-			pSearchSpawn->bGroup = TRUE;
+			pSearchSpawn->bGroup = true;
 			break;
 		case 3:
 			pSearchSpawn->SpawnType = NPC;
@@ -505,7 +505,7 @@ VOID ReloadSpawn()
 
 PCHAR GenerateSpawnName(PSPAWNINFO pSpawn, PCHAR NameString)
 {
-	CHAR Name[MAX_STRING] = { 0 };
+	char Name[MAX_STRING] = { 0 };
 	unsigned long outpos=0;
 #define AddMyString(str) {strcpy_s(&Name[outpos],MAX_STRING,str);outpos+=strlen(&Name[outpos]);}
 #define AddInt(yourint) {_itoa_s(yourint,&Name[outpos],MAX_STRING,10);outpos+=strlen(&Name[outpos]);}
@@ -519,7 +519,7 @@ PCHAR GenerateSpawnName(PSPAWNINFO pSpawn, PCHAR NameString)
 			{
 			case 'N':// cleaned up name
 				strcpy_s(&Name[outpos],MAX_STRING,pSpawn->Name);
-				CleanupName(&Name[outpos], MAX_STRING, FALSE);
+				CleanupName(&Name[outpos], MAX_STRING, false);
 				outpos+=strlen(&Name[outpos]);
 				break;
 			case 'n':// original name
@@ -569,7 +569,7 @@ PCHAR GenerateSpawnName(PSPAWNINFO pSpawn, PCHAR NameString)
 	return ret;
 }
 
-VOID Track(PSPAWNINFO pChar, PCHAR szLine)
+void Track(PSPAWNINFO pChar, PCHAR szLine)
 {
 	if (!strcmp(szLine,"help")) {
 		SyntaxError("Usage: /track [off | target | help | save]");
@@ -579,7 +579,7 @@ VOID Track(PSPAWNINFO pChar, PCHAR szLine)
 		return;
 	}
 	if (!strcmp(szLine,"off")) {
-		StopTracking(NULL,NULL);
+		StopTracking(nullptr, nullptr);
 		return;
 	}
 	if (!strcmp(szLine,"target")) {
@@ -594,9 +594,9 @@ VOID Track(PSPAWNINFO pChar, PCHAR szLine)
 			return;
 		}
 	}
-	CHAR szMsg[MAX_STRING]={0};
-	CHAR Arg1[MAX_STRING] = {0};
-	CHAR Arg2[MAX_STRING] = {0};
+	char szMsg[MAX_STRING]={0};
+	char Arg1[MAX_STRING] = {0};
+	char Arg2[MAX_STRING] = {0};
 	GetArg(Arg1,szLine,1);
 	if (!strcmp(Arg1,"refresh")) {
 		GetArg(Arg2,szLine,2);
@@ -697,10 +697,10 @@ VOID Track(PSPAWNINFO pChar, PCHAR szLine)
 	}
 }
 
-VOID TrackSpawn()
+void TrackSpawn()
 {
-	CHAR szMsg[MAX_STRING]={0};
-	CHAR szName[MAX_STRING]={0};
+	char szMsg[MAX_STRING]={0};
+	char szName[MAX_STRING]={0};
 	PSPAWNINFO pChar = (PSPAWNINFO)pCharSpawn;
 	if (!(pTrackSpawn)) {
 		// sprintf_s(szMsg,"There were no matches for id: %d", (PSPAWNINFO)(SpawnSet[TrackingWnd->TrackingList->GetCurSel()])->SpawnID);
@@ -712,7 +712,7 @@ VOID TrackSpawn()
 			INT Direction = (INT)((32 + (Angle - Heading))/2) % 8;
 			strcpy_s(szName, pTrackSpawn->Name);
 			sprintf_s(szMsg, MAX_STRING, "'%s' is %s; %1.2f away.",
-				CleanupName(szName, MAX_STRING, FALSE),
+				CleanupName(szName, MAX_STRING, false),
 				szDirection[Direction],
 				DistanceToSpawn(pChar,pTrackSpawn));
 			if (TrackingWnd)
@@ -721,20 +721,20 @@ VOID TrackSpawn()
 		else {
 			strcpy_s(szName, pTrackSpawn->Name);
 			sprintf_s(szMsg, MAX_STRING, "'%s' reached (within %i).  Tracking stopped.",
-				CleanupName(szName, MAX_STRING, FALSE), TrackDist);
-			StopTracking(NULL,NULL);
+			CleanupName(szName, MAX_STRING, false), TrackDist);
+			StopTracking(nullptr, nullptr);
 		}
 	}
 	WriteChatColor(szMsg,USERCOLOR_WHO);
 }
 
-VOID StopTracking(PSPAWNINFO pChar, PCHAR szLine)
+void StopTracking(PSPAWNINFO pChar, PCHAR szLine)
 {
 	DebugSpewAlways("MQ2Tracking::StopTracking:1");
 	if (TrackingWnd)
 		TrackingWnd->DoneButton->CSetWindowText("Refresh");
 	DebugSpewAlways("MQ2Tracking::StopTracking:2");
-	pTrackSpawn = NULL;
+	pTrackSpawn = nullptr;
 	DebugSpewAlways("MQ2Tracking::StopTracking:3");
 	if (IsTracking) {
 		WriteChatColor("Tracking Stopped.");
@@ -743,10 +743,10 @@ VOID StopTracking(PSPAWNINFO pChar, PCHAR szLine)
 	DebugSpewAlways("MQ2Tracking::StopTracking:4");
 }
 
-VOID TrackNames(PSPAWNINFO pChar, PCHAR szLine)
+void TrackNames(PSPAWNINFO pChar, PCHAR szLine)
 {
-	bRunNextCommand = TRUE;
-	CHAR szOut[MAX_STRING]={0};
+	bRunNextCommand = true;
+	char szOut[MAX_STRING]={0};
 	if (!szLine[0])
 	{
 		sprintf_s(szOut,"Normal naming string: %s",szNameTemplate);

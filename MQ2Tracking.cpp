@@ -1,18 +1,17 @@
 // MQ2Tracking
 
+#include <mq/Plugin.h>
 #include <time.h>
-#include "../MQ2Plugin.h"
+
 PreSetup("MQ2Tracking");
-PLUGIN_VERSION(0.16);
+PLUGIN_VERSION(1.0);
 
 void CreateTrackingWindow();
 void DestroyTrackingWindow();
-void ReadWindowINI(PCSIDLWND pWindow);
-void WriteWindowINI(PCSIDLWND pWindow);
-PCHAR GenerateSpawnName(PSPAWNINFO pSpawn, PCHAR NameString);
+std::string GenerateSpawnName(PSPAWNINFO pSpawn, const char* NameString);
 void ReloadSpawn();
 void Track(PSPAWNINFO pChar, PCHAR szLine);
-void StopTracking(PSPAWNINFO pChar, PCHAR szLine);
+void StopTracking();
 void TrackSpawn();
 
 bool IsTracking = false;
@@ -24,7 +23,7 @@ char szCustomSearch[MAX_STRING] = { 0 };
 clock_t lastRefresh = clock();
 PSPAWNINFO pTrackSpawn;
 
-PCHAR szDirection[] = {
+const char* szDirection[] = {
 	"straight ahead",          //0
 	"ahead and to the left",   //1
 	"to the left",             //2
@@ -35,9 +34,9 @@ PCHAR szDirection[] = {
 	"ahead and to the right"   //7
 };
 
-typedef struct _TRACKSORT {
+typedef struct TRACKSORT {
 	char Name[64];
-	DWORD SpawnID;
+	int SpawnID;
 } TRACKSORT, *PTRACKSORT;
 
 PTRACKSORT pTrackSort;
@@ -61,26 +60,20 @@ public:
 		TrackButton=(CButtonWnd*)GetChildItem("TRW_TrackButton");
 		DoneButton=(CButtonWnd*)GetChildItem("DoneButton");
 		AutoUpdateButton = (CButtonWnd*)GetChildItem("TRW_AutoUpdateButton");
-		SetWndNotification(CMyTrackingWnd);
-	}
-
-	~CMyTrackingWnd()
-	{
 	}
 
 	int WndNotification(CXWnd *pWnd, unsigned int Message, void *unknown) {
 		if (pWnd==0) {
 			if (Message==XWM_CLOSE) {
 				CreateTrackingWindow();
-				((CXWnd*)this)->Show(1,1);
+				this->Show(true,true);
 				SetVisible(true);
 				return 1;
 			}
 		}
 		if (pWnd == (CXWnd*)TrackButton) {
 			if (Message==XWM_LCLICK) {
-				char szLine[MAX_STRING] = {0};
-				pTrackSpawn = (PSPAWNINFO)GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID);
+				pTrackSpawn = GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID);
 				if (pTrackSpawn) {
 					WriteChatColor("Tracking started.");
 					TrackSpawn();
@@ -89,7 +82,7 @@ public:
 		}
 		else if (pWnd == (CXWnd*)DoneButton) {
 			if (Message==XWM_LCLICK) {
-				StopTracking(nullptr, nullptr);
+				StopTracking();
 				ReloadSpawn();
 			}
 		}
@@ -101,13 +94,10 @@ public:
 		else if (pWnd == (CXWnd*)TrackingList) {
 			if (Message==XWM_RCLICK) {
 				char szMsg[MAX_STRING] = { 0 };
-				PSPAWNINFO pSpawnTrack = (PSPAWNINFO)GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID);
-				if (pSpawnTrack) {
+				if (SPAWNINFO* pSpawnTrack = GetSpawnByID(pTrackSort[TrackingList->GetCurSel()].SpawnID)) {
 					if (IsTargetable(pSpawnTrack)) {
-						PSPAWNINFO *psTarget = nullptr;
-						if (ppTarget) {
-							psTarget = (PSPAWNINFO*)ppTarget;
-							*psTarget = pSpawnTrack;
+						if (pTarget) {
+							pTarget = pSpawnTrack;
 							szMsg[0] = 0;
 						}
 						else {
@@ -119,7 +109,7 @@ public:
 					if (!gFilterTarget)
 						WriteChatColor(szMsg, USERCOLOR_WHO);
 			}
-			}
+		}
 		else if (pWnd == (CXWnd*)FilterRedButton || pWnd == (CXWnd*)FilterYellowButton
 			|| pWnd==(CXWnd*)FilterWhiteButton || pWnd==(CXWnd*)FilterBlueButton
 			|| pWnd==(CXWnd*)FilterLBlueButton || pWnd==(CXWnd*)FilterGreenButton || pWnd==(CXWnd*)FilterGrayButton
@@ -128,7 +118,7 @@ public:
 				ReloadSpawn();
 		}
 		return CSidlScreenWnd::WndNotification(pWnd,Message,unknown);
-	};
+	}
 
 	CButtonWnd *FilterRedButton;
 	CButtonWnd *FilterYellowButton;
@@ -145,7 +135,7 @@ public:
 	CButtonWnd *AutoUpdateButton;
 };
 
-CMyTrackingWnd *TrackingWnd=0;
+CMyTrackingWnd* TrackingWnd = nullptr;
 
 PLUGIN_API void InitializePlugin()
 {
@@ -160,7 +150,7 @@ PLUGIN_API void ShutdownPlugin()
 	RemoveCommand("/track");
 	DestroyTrackingWindow();
 	if (pTrackSort)
-	free(pTrackSort);
+		free(pTrackSort);
 }
 
 PLUGIN_API void OnPulse()
@@ -176,19 +166,19 @@ PLUGIN_API void OnPulse()
 			if (TrackingWnd) {
 				if (TrackingWnd->IsVisible()) {
 					ReloadSpawn();
-			lastRefresh = clock();
+					lastRefresh = clock();
+				}
+			}
 		}
-	}
-}
 	}
 }
 
 PLUGIN_API void OnRemoveSpawn(PSPAWNINFO pSpawn)
 {
 	if (gGameState == GAMESTATE_INGAME && pTrackSpawn)
-		if (pNewSpawn == pTrackSpawn)
-			StopTracking(nullptr, nullptr);
-	}
+		if (pSpawn == pTrackSpawn)
+			StopTracking();
+}
 
 PLUGIN_API void OnCleanUI()
 {
@@ -209,96 +199,44 @@ PLUGIN_API void OnZoned()
 	lastRefresh = 0;
 }
 
-void CreateTrackingWindow()
+void ReadWindowINI(CMyTrackingWnd* pWindow)
 {
-	DebugSpewAlways("MQ2Tracking::CreateTrackingWindow()");
-	if (TrackingWnd || !GetCharInfo() || !GetCharInfo()->pSpawn)
-		return;
-	if (pSidlMgr->FindScreenPieceTemplate("TrackingWnd")) {
-		if (!TrackingWnd)
-		TrackingWnd = new CMyTrackingWnd;
-		TrackingWnd->DoneButton->CSetWindowText("Refresh");
-		TrackingWnd->TrackSortCombo->DeleteAll();
-		TrackingWnd->TrackSortCombo->SetColors(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
-		TrackingWnd->TrackSortCombo->InsertChoice("ID");
-		TrackingWnd->TrackSortCombo->InsertChoice("Name");
-		TrackingWnd->TrackSortCombo->InsertChoice("Level (Ascending)");
-		TrackingWnd->TrackSortCombo->InsertChoice("Level (Descending)");
-		TrackingWnd->TrackSortCombo->InsertChoice("Distance (Ascending)");
-		TrackingWnd->TrackSortCombo->InsertChoice("Distance (Descending)");
-		TrackingWnd->TrackSortCombo->SetChoice(1);
-		TrackingWnd->TrackPlayersCombo->DeleteAll();
-		TrackingWnd->TrackPlayersCombo->SetColors(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
-		TrackingWnd->TrackPlayersCombo->InsertChoice("All");
-		TrackingWnd->TrackPlayersCombo->InsertChoice("PC");
-		TrackingWnd->TrackPlayersCombo->InsertChoice("Group");
-		TrackingWnd->TrackPlayersCombo->InsertChoice("NPC");
-		TrackingWnd->TrackPlayersCombo->InsertChoice("Chest");
-		TrackingWnd->TrackPlayersCombo->SetChoice(0);
-		ReadWindowINI((PCSIDLWND)TrackingWnd);
-		WriteWindowINI((PCSIDLWND)TrackingWnd);
-		try {
-			((CXWnd*)TrackingWnd)->Show(0,0);
-			((CXWnd*)TrackingWnd)->Show(1,1);
-		}
-		catch(...) {
-		}
-	}
-}
-
-void DestroyTrackingWindow()
-{
-	DebugSpewAlways("MQ2Tracking::DestroyTrackingWindow()");
-	if (TrackingWnd) {
-		WriteWindowINI((PCSIDLWND)TrackingWnd);
-		delete TrackingWnd;
-		TrackingWnd=0;
-	}
-}
-
-void ReadWindowINI(PCSIDLWND pWindow)
-{
-	char Buffer[MAX_STRING] = { 0 };
 	if (!pWindow)
 		return;
-	pWindow->SetLocation({ (LONG)GetPrivateProfileInt("Settings","ChatLeft", 164,INIFileName),
-		(LONG)GetPrivateProfileInt("Settings","ChatTop", 357,INIFileName),
-		(LONG)GetPrivateProfileInt("Settings","ChatRight", 375,INIFileName),
-		(LONG)GetPrivateProfileInt("Settings","ChatBottom", 620,INIFileName) });
 
-	pWindow->SetLocked((GetPrivateProfileInt("Settings", "Locked", 0, INIFileName) ? true : false));
-	pWindow->SetFades((GetPrivateProfileInt("Settings", "Fades", 1, INIFileName) ? true : false));
+	pWindow->SetLocation({ GetPrivateProfileInt("Settings","ChatLeft", 164,INIFileName),
+		GetPrivateProfileInt("Settings","ChatTop", 357,INIFileName),
+		GetPrivateProfileInt("Settings","ChatRight", 375,INIFileName),
+		GetPrivateProfileInt("Settings","ChatBottom", 620,INIFileName) });
+
+	pWindow->SetLocked(GetPrivateProfileBool("Settings", "Locked", false, INIFileName));
+	pWindow->SetFades(GetPrivateProfileBool("Settings", "Fades", true, INIFileName));
 	pWindow->SetFadeDelay(GetPrivateProfileInt("Settings", "Delay", 2000, INIFileName));
 	pWindow->SetFadeDuration(GetPrivateProfileInt("Settings", "Duration", 500, INIFileName));
 	pWindow->SetAlpha(GetPrivateProfileInt("Settings", "Alpha", 255, INIFileName));
 	pWindow->SetFadeToAlpha(GetPrivateProfileInt("Settings", "FadeToAlpha", 255, INIFileName));
 	pWindow->SetBGType(GetPrivateProfileInt("Settings", "BGType", 1, INIFileName));
-	ARGBCOLOR col = { 0 };
-	col.ARGB = pWindow->GetBGColor();
-	col.A = GetPrivateProfileInt("Settings", "BGTint.alpha", 255, INIFileName);
-	col.R = GetPrivateProfileInt("Settings", "BGTint.red", 0, INIFileName);
-	col.G = GetPrivateProfileInt("Settings", "BGTint.green", 0, INIFileName);
-	col.B = GetPrivateProfileInt("Settings", "BGTint.blue", 0, INIFileName);
-	((CMyTrackingWnd*)pWindow)->FilterRedButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowRed", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterYellowButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowYellow", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterWhiteButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowWhite", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterBlueButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowBlue", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterLBlueButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowLBlue", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterGreenButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowGreen", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->FilterGrayButton->SetCheck(1 & GetPrivateProfileInt("Filters", "ShowGray", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->SetChoice(GetPrivateProfileInt("Filters", "Players", 0, INIFileName));
-	((CMyTrackingWnd*)pWindow)->TrackSortCombo->SetChoice(GetPrivateProfileInt("Filters", "Sort", 0, INIFileName));
+	pWindow->SetBGColor(GetPrivateProfileColor("Settings", "BGTint", MQColor(0, 0, 0), INIFileName));
+	pWindow->FilterRedButton->SetCheck(GetPrivateProfileBool("Filters", "ShowRed", false, INIFileName));
+	pWindow->FilterYellowButton->SetCheck(GetPrivateProfileBool("Filters", "ShowYellow", false, INIFileName));
+	pWindow->FilterWhiteButton->SetCheck(GetPrivateProfileBool("Filters", "ShowWhite", false, INIFileName));
+	pWindow->FilterBlueButton->SetCheck(GetPrivateProfileBool("Filters", "ShowBlue", false, INIFileName));
+	pWindow->FilterLBlueButton->SetCheck(GetPrivateProfileBool("Filters", "ShowLBlue", false, INIFileName));
+	pWindow->FilterGreenButton->SetCheck(GetPrivateProfileBool("Filters", "ShowGreen", false, INIFileName));
+	pWindow->FilterGrayButton->SetCheck(GetPrivateProfileBool("Filters", "ShowGray", false, INIFileName));
+	pWindow->TrackPlayersCombo->SetChoice(GetPrivateProfileInt("Filters", "Players", 0, INIFileName));
+	pWindow->TrackSortCombo->SetChoice(GetPrivateProfileInt("Filters", "Sort", 0, INIFileName));
 	TrackDist = GetPrivateProfileInt("Settings", "TrackDistance", 75, INIFileName);
 	GetPrivateProfileString("Settings", "DisplayTpl", "[%l %C] %N (%R)", szNameTemplate, MAX_STRING, INIFileName);
-	((CMyTrackingWnd*)pWindow)->AutoUpdateButton->SetCheck(1 & GetPrivateProfileInt("Settings", "AutoRefresh", 0, INIFileName));
+	pWindow->AutoUpdateButton->SetCheck(GetPrivateProfileBool("Settings", "AutoRefresh", false , INIFileName));
 	RefreshTimer = GetPrivateProfileInt("Settings", "RefreshDelay", 60, INIFileName);
 }
 
-void WriteWindowINI(PCSIDLWND pWindow)
+void WriteWindowINI(CMyTrackingWnd* pWindow)
 {
-	char szTemp[MAX_STRING] = {0};
 	if (!pWindow)
 		return;
+
 	if (pWindow->IsMinimized()) {
 		WritePrivateProfileInt("Settings", "ChatTop", pWindow->GetOldLocation().top, INIFileName);
 		WritePrivateProfileInt("Settings", "ChatBottom", pWindow->GetOldLocation().bottom, INIFileName);
@@ -311,6 +249,7 @@ void WriteWindowINI(PCSIDLWND pWindow)
 		WritePrivateProfileInt("Settings", "ChatLeft", pWindow->GetLocation().left, INIFileName);
 		WritePrivateProfileInt("Settings", "ChatRight", pWindow->GetLocation().right, INIFileName);
 	}
+
 	WritePrivateProfileBool("Settings", "Locked", pWindow->IsLocked(), INIFileName);
 	WritePrivateProfileBool("Settings", "Fades", pWindow->GetFades(), INIFileName);
 	WritePrivateProfileInt("Settings", "Delay", pWindow->GetFadeDelay(), INIFileName);
@@ -319,88 +258,113 @@ void WriteWindowINI(PCSIDLWND pWindow)
 	WritePrivateProfileInt("Settings", "FadeToAlpha", pWindow->GetFadeToAlpha(), INIFileName);
 	WritePrivateProfileInt("Settings", "BGType", pWindow->GetBGType(), INIFileName);
 
-	ARGBCOLOR col = { 0 };
-	col.ARGB = pWindow->GetBGColor();
-	WritePrivateProfileInt("Settings", "BGTint.alpha", col.A, INIFileName);
-	WritePrivateProfileInt("Settings", "BGTint.red", col.R, INIFileName);
-	WritePrivateProfileInt("Settings", "BGTint.green", col.G, INIFileName);
-	WritePrivateProfileInt("Settings", "BGTint.blue", col.B, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowRed", ((CMyTrackingWnd*)pWindow)->FilterRedButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowYellow", ((CMyTrackingWnd*)pWindow)->FilterYellowButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowWhite", ((CMyTrackingWnd*)pWindow)->FilterWhiteButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowBlue", ((CMyTrackingWnd*)pWindow)->FilterBlueButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowLBlue", ((CMyTrackingWnd*)pWindow)->FilterLBlueButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowGreen", ((CMyTrackingWnd*)pWindow)->FilterGreenButton->Checked, INIFileName);
-	WritePrivateProfileBool("Filters", "ShowGray", ((CMyTrackingWnd*)pWindow)->FilterGrayButton->Checked, INIFileName);
-	WritePrivateProfileInt("Filters", "Players", ((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->GetCurChoice(), INIFileName);
-	WritePrivateProfileInt("Filters", "Sort", ((CMyTrackingWnd*)pWindow)->TrackSortCombo->GetCurChoice(), INIFileName);
+	WritePrivateProfileColor("Settings", "BGTint", pWindow->GetBGColor(), INIFileName);
+	WritePrivateProfileBool("Filters", "ShowRed", pWindow->FilterRedButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowYellow", pWindow->FilterYellowButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowWhite", pWindow->FilterWhiteButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowBlue", pWindow->FilterBlueButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowLBlue", pWindow->FilterLBlueButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowGreen", pWindow->FilterGreenButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowGray", pWindow->FilterGrayButton->Checked, INIFileName);
+	WritePrivateProfileInt("Filters", "Players", pWindow->TrackPlayersCombo->GetCurChoice(), INIFileName);
+	WritePrivateProfileInt("Filters", "Sort", pWindow->TrackSortCombo->GetCurChoice(), INIFileName);
 	WritePrivateProfileInt("Settings", "TrackDistance", TrackDist, INIFileName);
 	WritePrivateProfileString("Settings","DisplayTpl", szNameTemplate, INIFileName);
-	WritePrivateProfileBool("Settings", "AutoRefresh", ((CMyTrackingWnd*)pWindow)->AutoUpdateButton->Checked, INIFileName);
+	WritePrivateProfileBool("Settings", "AutoRefresh", pWindow->AutoUpdateButton->Checked, INIFileName);
 	WritePrivateProfileInt("Settings", "RefreshDelay", RefreshTimer, INIFileName);
 }
 
-DWORD STrackSortValue=0;
-PSPAWNINFO SWhoSortOrigin=0;
-
-static int pTrackSORTCompare(const void *A, const void *B)
+void CreateTrackingWindow()
 {
-	PSPAWNINFO SpawnA=*(PSPAWNINFO*)A;
-	PSPAWNINFO SpawnB=*(PSPAWNINFO*)B;
-	switch (STrackSortValue) {
-	case 0:  // spawnid - ascending
-		if (SpawnA->SpawnID>SpawnB->SpawnID)
-			return 1;
-		if (SpawnA->SpawnID<SpawnB->SpawnID)
-			return -1;
-		break;
-	case 2:  //level - ascending
-		if (SpawnA->Level>SpawnB->Level)
-			return 1;
-		if (SpawnA->Level<SpawnB->Level)
-			return -1;
-		break;
-	case 3:  //level - descending
-		if (SpawnA->Level>SpawnB->Level)
-			return -1;
-		if (SpawnA->Level<SpawnB->Level)
-			return 1;
-		break;
-	case 4:  //distance - ascending
-		{
-			FLOAT DistA=GetDistance(SWhoSortOrigin,SpawnA);
-			FLOAT DistB=GetDistance(SWhoSortOrigin,SpawnB);
-			if (DistA>DistB)
-				return 1;
-			if (DistA<DistB)
-				return -1;
+	DebugSpewAlways("MQ2Tracking::CreateTrackingWindow()");
+
+	if (TrackingWnd || !GetCharInfo() || !GetCharInfo()->pSpawn)
+		return;
+
+	if (pSidlMgr->FindScreenPieceTemplate("TrackingWnd")) {
+		if (!TrackingWnd)
+			TrackingWnd = new CMyTrackingWnd;
+
+		TrackingWnd->DoneButton->SetWindowText("Refresh");
+		TrackingWnd->TrackSortCombo->DeleteAll();
+		TrackingWnd->TrackSortCombo->SetColors(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
+		TrackingWnd->TrackSortCombo->InsertChoice("ID");                 // 0
+		TrackingWnd->TrackSortCombo->InsertChoice("ID (Reverse)");       // 1
+		TrackingWnd->TrackSortCombo->InsertChoice("Name");               // 2
+		TrackingWnd->TrackSortCombo->InsertChoice("Name (Reverse)");     // 3
+		TrackingWnd->TrackSortCombo->InsertChoice("Level");              // 4
+		TrackingWnd->TrackSortCombo->InsertChoice("Level (Reverse)");    // 5
+		TrackingWnd->TrackSortCombo->InsertChoice("Distance");           // 6
+		TrackingWnd->TrackSortCombo->InsertChoice("Distance (Reverse)"); // 7
+		TrackingWnd->TrackSortCombo->SetChoice(1);
+		TrackingWnd->TrackPlayersCombo->DeleteAll();
+		TrackingWnd->TrackPlayersCombo->SetColors(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF);
+		TrackingWnd->TrackPlayersCombo->InsertChoice("All");
+		TrackingWnd->TrackPlayersCombo->InsertChoice("PC");
+		TrackingWnd->TrackPlayersCombo->InsertChoice("Group");
+		TrackingWnd->TrackPlayersCombo->InsertChoice("NPC");
+		TrackingWnd->TrackPlayersCombo->InsertChoice("Chest");
+		TrackingWnd->TrackPlayersCombo->SetChoice(0);
+		ReadWindowINI(TrackingWnd);
+		WriteWindowINI(TrackingWnd);
+		try {
+			TrackingWnd->Show(false,false);
+			TrackingWnd->Show(true,true);
 		}
-		break;
-	case 5:  //distance - descending
-		{
-			FLOAT DistA=GetDistance(SWhoSortOrigin,SpawnA);
-			FLOAT DistB=GetDistance(SWhoSortOrigin,SpawnB);
-			if (DistA>DistB)
-				return -1;
-			if (DistA<DistB)
-				return 1;
+		catch(...) {
 		}
-		break;
 	}
-	return _stricmp(CleanupName(SpawnA->Name, MAX_STRING), CleanupName(SpawnB->Name, MAX_STRING));
 }
+
+void DestroyTrackingWindow()
+{
+	DebugSpewAlways("MQ2Tracking::DestroyTrackingWindow()");
+	if (TrackingWnd) {
+		WriteWindowINI(TrackingWnd);
+		delete TrackingWnd;
+		TrackingWnd = nullptr;
+	}
+}
+
+
+int STrackSortValue = 6;
+
+struct TrackSortCompare
+{
+	bool operator()(SPAWNINFO* SpawnA, SPAWNINFO* SpawnB) const
+	{
+		switch (STrackSortValue) {
+		case 0:  // id
+			return SpawnA->SpawnID < SpawnB->SpawnID;
+		case 1:  // id - reverse
+			return SpawnA->SpawnID > SpawnB->SpawnID;
+		case 2:  // name
+			return _stricmp(SpawnA->Name, SpawnB->Name) < 0;
+		case 3:  // name reverse
+			return _stricmp(SpawnA->Name, SpawnB->Name) > 0;
+		case 4:  // level
+			return SpawnA->Level < SpawnB->Level;
+		case 5:  // level reverse
+			return SpawnA->Level > SpawnB->Level;
+		case 6:  //distance
+			return GetDistanceSquared(pLocalPlayer, SpawnA) < GetDistanceSquared(pLocalPlayer, SpawnB);
+		case 7:  //distance reverse
+			return GetDistanceSquared(pLocalPlayer, SpawnA) < GetDistanceSquared(pLocalPlayer, SpawnB);
+		default:
+			return false;
+		}
+	}
+};
 
 void ReloadSpawn()
 {
 	if (!TrackingWnd)
 		return;
-	SEARCHSPAWN SearchSpawn;
-	CIndex<PSPAWNINFO> SpawnSet;
-	PSPAWNINFO pChar = (PSPAWNINFO)pCharSpawn;
-	PSPAWNINFO pSpawn = (PSPAWNINFO)pSpawnList;
-	PSPAWNINFO pOrigin=pChar;
-	PSEARCHSPAWN pSearchSpawn = &SearchSpawn;
-	DWORD TotalMatching=0;
+
+	MQSpawnSearch SearchSpawn;
+	std::vector<SPAWNINFO*> SpawnSet;
+	PSPAWNINFO pSpawn = pSpawnList;
+	MQSpawnSearch* pSearchSpawn = &SearchSpawn;
 	ClearSearchSpawn(pSearchSpawn);
 	ParseSearchSpawn(szCustomSearch,pSearchSpawn);
 	switch (TrackingWnd->TrackPlayersCombo->GetCurChoice()) {
@@ -420,11 +384,11 @@ void ReloadSpawn()
 			pSearchSpawn->SpawnType = NONE;
 			break;
 	}
-	pSearchSpawn->SortBy = TrackingWnd->TrackSortCombo->GetCurChoice();
+	//pSearchSpawn->SortBy = static_cast<SearchSortBy>(TrackingWnd->TrackSortCombo->GetCurChoice());
 	while (pSpawn)
 	{
 		DWORD myColor = ConColor(pSpawn);
-		if (SpawnMatchesSearch(pSearchSpawn,pOrigin,pSpawn) && (
+		if (SpawnMatchesSearch(pSearchSpawn, pLocalPlayer, pSpawn) && (
 			(myColor == CONCOLOR_RED && TrackingWnd->FilterRedButton->Checked & 1) ||
 			(myColor == CONCOLOR_YELLOW && TrackingWnd->FilterYellowButton->Checked & 1) ||
 			(myColor == CONCOLOR_WHITE && TrackingWnd->FilterWhiteButton->Checked & 1) ||
@@ -434,37 +398,37 @@ void ReloadSpawn()
 			(myColor == CONCOLOR_GREY && TrackingWnd->FilterGrayButton->Checked & 1)
 			)
 			) {
-				TotalMatching++;
-				SpawnSet+=pSpawn;
+				SpawnSet.emplace_back(pSpawn);
 		}
-		pSpawn=pSpawn->pNext;
+		pSpawn = pSpawn->GetNext();
 	}
-	if (TotalMatching)
+	if (SpawnSet.size() > 1)
 	{
-		if (TotalMatching>1)
-		{
-			// sort our list
-			STrackSortValue=pSearchSpawn->SortBy;
-			SWhoSortOrigin=pOrigin;
-			qsort(&SpawnSet.List[0],TotalMatching,sizeof(PSPAWNINFO),pTrackSORTCompare);
-		}
+		// sort our list
+		STrackSortValue = TrackingWnd->TrackSortCombo->GetCurChoice();
+		std::sort(SpawnSet.begin(), SpawnSet.end(), TrackSortCompare());
 	}
-	DWORD ListSel = TrackingWnd->TrackingList->GetCurSel();
+
+	int ListSel = TrackingWnd->TrackingList->GetCurSel();
 	if (ListSel != -1) {
 		ListSel = pTrackSort[TrackingWnd->TrackingList->GetCurSel()].SpawnID;
 	}
+
 	TrackingWnd->TrackingList->DeleteAll();
+
 	if (pTrackSort)
-	free(pTrackSort);
-	pTrackSort = (PTRACKSORT)malloc(sizeof(TRACKSORT)*TotalMatching);
-	for (DWORD N=0 ; N < TotalMatching ; N++)
+		free(pTrackSort);
+
+	pTrackSort = (PTRACKSORT)malloc(sizeof(TRACKSORT)*SpawnSet.size());
+
+	for (unsigned int N = 0 ; N < SpawnSet.size() ; ++N)
 	{
 		pTrackSort[N].SpawnID = SpawnSet[N]->SpawnID;
 		strcpy_s(pTrackSort[N].Name, SpawnSet[N]->Name);
-		DWORD myColor = ConColor((PSPAWNINFO)(SpawnSet[N]));
+		const int myColor = ConColor((SpawnSet[N]));
 		TrackingWnd->TrackingList->AddString(
-			GenerateSpawnName(SpawnSet[N], szNameTemplate),
-			ConColorToARGB(myColor),0,0);
+			GenerateSpawnName(SpawnSet[N], szNameTemplate).c_str(),
+			ConColorToARGB(myColor),0, nullptr);
 
 		if (ListSel == (SpawnSet[N]->SpawnID)) {
 			TrackingWnd->TrackingList->SetCurSel(N);
@@ -472,70 +436,31 @@ void ReloadSpawn()
 	}
 }
 
-PCHAR GenerateSpawnName(PSPAWNINFO pSpawn, PCHAR NameString)
+std::string GenerateSpawnName(PSPAWNINFO pSpawn, const char* NameString)
 {
-	char Name[MAX_STRING] = { 0 };
-	unsigned long outpos=0;
-#define AddMyString(str) {strcpy_s(&Name[outpos],MAX_STRING,str);outpos+=strlen(&Name[outpos]);}
-#define AddInt(yourint) {_itoa_s(yourint,&Name[outpos],MAX_STRING,10);outpos+=strlen(&Name[outpos]);}
-#define AddFloat10th(yourfloat) {outpos+=sprintf_s(&Name[outpos],MAX_STRING,"%.1f",yourfloat);}
-	for (unsigned long N = 0 ; NameString[N] ; N++)
+	std::string parsedString = NameString;
+	if (pSpawn != nullptr)
 	{
-		if (NameString[N]=='%')
-		{
-			N++;
-			switch(NameString[N])
-			{
-			case 'N':// cleaned up name
-				strcpy_s(&Name[outpos],MAX_STRING,pSpawn->Name);
-				CleanupName(&Name[outpos], MAX_STRING, false);
-				outpos+=strlen(&Name[outpos]);
-				break;
-			case 'n':// original name
-				AddMyString(pSpawn->Name);
-				break;
-			case 'h':// current health %
-				AddInt(pSpawn->HPCurrent);
-				break;
-			case 'i':
-				AddInt(pSpawn->SpawnID);
-				break;
-			case 'x':
-				AddFloat10th(pSpawn->X);
-				break;
-			case 'y':
-				AddFloat10th(pSpawn->Y);
-				break;
-			case 'z':
-				AddFloat10th(pSpawn->Z);
-				break;
-			case 'd':
-				AddFloat10th(GetDistance(pSpawn->X,pSpawn->Y));
-				break;
-			case 'R':
-				AddMyString(pEverQuest->GetRaceDesc(pSpawn->mActorClient.Race));
-				break;
-			case 'C':
-				AddMyString(pEverQuest->GetClassDesc(pSpawn->mActorClient.Class));
-				break;
-			case 'c':
-				AddMyString(pEverQuest->GetClassThreeLetterCode(pSpawn->mActorClient.Class));
-				break;
-			case 'l':
-				AddInt(pSpawn->Level);
-				break;
-			case '%':
-				Name[outpos++]=NameString[N];
-				break;
-			}
-		}
-		else
-			Name[outpos++]=NameString[N];
+		const std::string trackingToken = "||MQ2TrackingToken||";
+		// Previous code used %% as escape
+		parsedString = replace(parsedString, "%%", trackingToken);
+		// Parse the rest
+		parsedString = replace(parsedString, "%N", CleanupName(pSpawn->Name, EQ_MAX_NAME, false));
+		parsedString = replace(parsedString, "%n", pSpawn->Name);
+		parsedString = replace(parsedString, "%h", std::to_string(pSpawn->HPCurrent));
+		parsedString = replace(parsedString, "%i", std::to_string(pSpawn->SpawnID));
+		parsedString = replace(parsedString, "%x", fmt::format("{:.1f}", pSpawn->X));
+		parsedString = replace(parsedString, "%y", fmt::format("{:.1f}", pSpawn->Y));
+		parsedString = replace(parsedString, "%z", fmt::format("{:.1f}", pSpawn->Z));
+		parsedString = replace(parsedString, "%d", fmt::format("{:.1f}", GetDistance(pSpawn->X,pSpawn->Y)));
+		parsedString = replace(parsedString, "%R", pEverQuest->GetRaceDesc(pSpawn->mActorClient.Race));
+		parsedString = replace(parsedString, "%C", pEverQuest->GetClassDesc(pSpawn->mActorClient.Class));
+		parsedString = replace(parsedString, "%l", std::to_string(pSpawn->Level));
+		// Put a single % back where it was escaped
+		parsedString = replace(parsedString, trackingToken, "%");
 	}
-	Name[outpos]=0;
-	PCHAR ret=(PCHAR)malloc(strlen(Name)+1);
-	strcpy_s(ret, strlen(Name) + 1, Name);
-	return ret;
+
+	return parsedString;
 }
 
 void Track(PSPAWNINFO pChar, PCHAR szLine)
@@ -548,20 +473,19 @@ void Track(PSPAWNINFO pChar, PCHAR szLine)
 		return;
 	}
 	if (!strcmp(szLine,"off")) {
-		StopTracking(nullptr, nullptr);
+		StopTracking();
 		return;
 	}
 	if (!strcmp(szLine,"target")) {
-		if ((PSPAWNINFO)pTarget) {
-			pTrackSpawn = (PSPAWNINFO)pTarget;
+		if (pTarget) {
+			pTrackSpawn = pTarget;
 			TrackSpawn();
 			IsTracking = true;
-			return;
 		}
 		else {
 			WriteChatColor("Must have a target to track");
-			return;
 		}
+		return;
 	}
 	char szMsg[MAX_STRING]={0};
 	char Arg1[MAX_STRING] = {0};
@@ -586,8 +510,10 @@ void Track(PSPAWNINFO pChar, PCHAR szLine)
 		}
 		else {
 			RefreshTimer = GetIntFromString(Arg2, 0);
-			if (RefreshTimer < 1) RefreshTimer = 1;
-			if (RefreshTimer > 1000) RefreshTimer = 1000;
+			if (RefreshTimer < 1)
+				RefreshTimer = 1;
+			if (RefreshTimer > 1000)
+				RefreshTimer = 1000;
 			sprintf_s(szMsg,"Tracking window will refresh every %i second(s).", RefreshTimer);
 		}
 		WriteChatColor(szMsg,USERCOLOR_CHAT_CHANNEL);
@@ -647,21 +573,22 @@ void Track(PSPAWNINFO pChar, PCHAR szLine)
 		return;
 	}
 	else if (!strcmp(Arg1, "save")) {
-		WriteWindowINI((PCSIDLWND)TrackingWnd);
+		WriteWindowINI(TrackingWnd);
 		WriteChatf("\arMQ2Tracking\aw::\agOptions and window settings saved.");
 		return;
 	}
-	if (TrackingWnd)
+	if (TrackingWnd) {
 		if (TrackingWnd->IsVisible())
 			DestroyTrackingWindow();
 		else {
-			((CXWnd*)TrackingWnd)->Show(1,1);
-			ReadWindowINI((PCSIDLWND)TrackingWnd);
+			TrackingWnd->Show(true,true);
+			ReadWindowINI(TrackingWnd);
 			ReloadSpawn();
 		}
+	}
 	else {
 		CreateTrackingWindow();
-		ReadWindowINI((PCSIDLWND)TrackingWnd);
+		ReadWindowINI(TrackingWnd);
 		ReloadSpawn();
 	}
 }
@@ -670,38 +597,38 @@ void TrackSpawn()
 {
 	char szMsg[MAX_STRING]={0};
 	char szName[MAX_STRING]={0};
-	PSPAWNINFO pChar = (PSPAWNINFO)pCharSpawn;
+	PSPAWNINFO pChar = pCharSpawn;
 	if (!(pTrackSpawn)) {
 		// sprintf_s(szMsg,"There were no matches for id: %d", (PSPAWNINFO)(SpawnSet[TrackingWnd->TrackingList->GetCurSel()])->SpawnID);
 	}
 	else {
 		if (DistanceToSpawn(pChar,pTrackSpawn) > TrackDist) {
-			INT Angle = (INT)((atan2f(pChar->X - pTrackSpawn->X, pChar->Y - pTrackSpawn->Y) * 180.0f / PI + 360.0f) / 22.5f + 0.5f) % 16;
-			INT Heading = (INT)((pChar->Heading / 32.0f) + 8.5f) % 16;
-			INT Direction = (INT)((32 + (Angle - Heading))/2) % 8;
+			int Angle = static_cast<int>((atan2f(pChar->X - pTrackSpawn->X, pChar->Y - pTrackSpawn->Y) * 180.0f / PI + 360.0f) / 22.5f + 0.5f) % 16;
+			int Heading = static_cast<int>((pChar->Heading / 32.0f) + 8.5f) % 16;
+			int Direction = ((32 + (Angle - Heading))/2) % 8;
 			strcpy_s(szName, pTrackSpawn->Name);
 			sprintf_s(szMsg, MAX_STRING, "'%s' is %s; %1.2f away.",
 				CleanupName(szName, MAX_STRING, false),
 				szDirection[Direction],
 				DistanceToSpawn(pChar,pTrackSpawn));
 			if (TrackingWnd)
-				TrackingWnd->DoneButton->CSetWindowText("Cancel");
+				TrackingWnd->DoneButton->SetWindowText("Cancel");
 		}
 		else {
 			strcpy_s(szName, pTrackSpawn->Name);
 			sprintf_s(szMsg, MAX_STRING, "'%s' reached (within %i).  Tracking stopped.",
 			CleanupName(szName, MAX_STRING, false), TrackDist);
-			StopTracking(nullptr, nullptr);
+			StopTracking();
 		}
 	}
 	WriteChatColor(szMsg,USERCOLOR_WHO);
 }
 
-void StopTracking(PSPAWNINFO pChar, PCHAR szLine)
+void StopTracking()
 {
 	DebugSpewAlways("MQ2Tracking::StopTracking:1");
 	if (TrackingWnd)
-		TrackingWnd->DoneButton->CSetWindowText("Refresh");
+		TrackingWnd->DoneButton->SetWindowText("Refresh");
 	DebugSpewAlways("MQ2Tracking::StopTracking:2");
 	pTrackSpawn = nullptr;
 	DebugSpewAlways("MQ2Tracking::StopTracking:3");

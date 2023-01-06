@@ -29,7 +29,7 @@ PCHAR szDirection[] = {
 	"ahead and to the left",   //1
 	"to the left",             //2
 	"behind and to the left",  //3
-	"diretly behind",          //4
+	"directly behind",         //4
 	"behind and to the right", //5
 	"to the right",            //6
 	"ahead and to the right"   //7

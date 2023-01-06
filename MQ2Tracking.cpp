@@ -300,75 +300,44 @@ void WriteWindowINI(PCSIDLWND pWindow)
 	if (!pWindow)
 		return;
 	if (pWindow->IsMinimized()) {
-		_itoa_s(pWindow->GetOldLocation().top, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatTop", szTemp, INIFileName);
-		_itoa_s(pWindow->GetOldLocation().bottom, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatBottom", szTemp, INIFileName);
-		_itoa_s(pWindow->GetOldLocation().left, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatLeft", szTemp, INIFileName);
-		_itoa_s(pWindow->GetOldLocation().right, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatRight", szTemp, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatTop", pWindow->GetOldLocation().top, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatBottom", pWindow->GetOldLocation().bottom, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatLeft", pWindow->GetOldLocation().left, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatRight", pWindow->GetOldLocation().right, INIFileName);
 	}
 	else {
-		_itoa_s(pWindow->GetLocation().top, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatTop", szTemp, INIFileName);
-		_itoa_s(pWindow->GetLocation().bottom, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatBottom", szTemp, INIFileName);
-		_itoa_s(pWindow->GetLocation().left, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatLeft", szTemp, INIFileName);
-		_itoa_s(pWindow->GetLocation().right, szTemp, 10);
-		WritePrivateProfileString("Settings", "ChatRight", szTemp, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatTop", pWindow->GetLocation().top, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatBottom", pWindow->GetLocation().bottom, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatLeft", pWindow->GetLocation().left, INIFileName);
+		WritePrivateProfileInt("Settings", "ChatRight", pWindow->GetLocation().right, INIFileName);
 	}
-	_itoa_s(pWindow->IsLocked(), szTemp, 10);
-	WritePrivateProfileString("Settings", "Locked", szTemp, INIFileName);
-	_itoa_s(pWindow->GetFades(), szTemp, 10);
-	WritePrivateProfileString("Settings", "Fades", szTemp, INIFileName);
-	_itoa_s(pWindow->GetFadeDelay(), szTemp, 10);
-	WritePrivateProfileString("Settings", "Delay", szTemp, INIFileName);
-	_itoa_s(pWindow->GetFadeDuration(), szTemp, 10);
-	WritePrivateProfileString("Settings", "Duration", szTemp, INIFileName);
-	_itoa_s(pWindow->GetAlpha(), szTemp, 10);
-	WritePrivateProfileString("Settings", "Alpha", szTemp, INIFileName);
-	_itoa_s(pWindow->GetFadeToAlpha(), szTemp, 10);
-	WritePrivateProfileString("Settings", "FadeToAlpha", szTemp, INIFileName);
-	_itoa_s(pWindow->GetBGType(), szTemp, 10);
-	WritePrivateProfileString("Settings", "BGType", szTemp, INIFileName);
+	WritePrivateProfileBool("Settings", "Locked", pWindow->IsLocked(), INIFileName);
+	WritePrivateProfileBool("Settings", "Fades", pWindow->GetFades(), INIFileName);
+	WritePrivateProfileInt("Settings", "Delay", pWindow->GetFadeDelay(), INIFileName);
+	WritePrivateProfileInt("Settings", "Duration", pWindow->GetFadeDuration(), INIFileName);
+	WritePrivateProfileInt("Settings", "Alpha", pWindow->GetAlpha(), INIFileName);
+	WritePrivateProfileInt("Settings", "FadeToAlpha", pWindow->GetFadeToAlpha(), INIFileName);
+	WritePrivateProfileInt("Settings", "BGType", pWindow->GetBGType(), INIFileName);
 
 	ARGBCOLOR col = { 0 };
 	col.ARGB = pWindow->GetBGColor();
-	_itoa_s(col.A, szTemp, 10);
-	WritePrivateProfileString("Settings", "BGTint.alpha", szTemp, INIFileName);
-	_itoa_s(col.R, szTemp, 10);
-	WritePrivateProfileString("Settings", "BGTint.red", szTemp, INIFileName);
-	_itoa_s(col.G, szTemp, 10);
-	WritePrivateProfileString("Settings", "BGTint.green", szTemp, INIFileName);
-	_itoa_s(col.B, szTemp, 10);
-	WritePrivateProfileString("Settings", "BGTint.blue", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterRedButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowRed", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterYellowButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowYellow", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterWhiteButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowWhite", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterBlueButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowBlue", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterLBlueButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowLBlue", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterGreenButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowGreen", szTemp, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->FilterGrayButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Filters", "ShowGray", szTemp, INIFileName);
-	_itoa_s(((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->GetCurChoice(), szTemp, 10);
-	WritePrivateProfileString("Filters", "Players", szTemp, INIFileName);
-	_itoa_s(((CMyTrackingWnd*)pWindow)->TrackSortCombo->GetCurChoice(), szTemp, 10);
-	WritePrivateProfileString("Filters", "Sort", szTemp, INIFileName);
-	_itoa_s(TrackDist, szTemp, 10);
-	WritePrivateProfileString("Settings", "TrackDistance", szTemp, INIFileName);
+	WritePrivateProfileInt("Settings", "BGTint.alpha", col.A, INIFileName);
+	WritePrivateProfileInt("Settings", "BGTint.red", col.R, INIFileName);
+	WritePrivateProfileInt("Settings", "BGTint.green", col.G, INIFileName);
+	WritePrivateProfileInt("Settings", "BGTint.blue", col.B, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowRed", ((CMyTrackingWnd*)pWindow)->FilterRedButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowYellow", ((CMyTrackingWnd*)pWindow)->FilterYellowButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowWhite", ((CMyTrackingWnd*)pWindow)->FilterWhiteButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowBlue", ((CMyTrackingWnd*)pWindow)->FilterBlueButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowLBlue", ((CMyTrackingWnd*)pWindow)->FilterLBlueButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowGreen", ((CMyTrackingWnd*)pWindow)->FilterGreenButton->Checked, INIFileName);
+	WritePrivateProfileBool("Filters", "ShowGray", ((CMyTrackingWnd*)pWindow)->FilterGrayButton->Checked, INIFileName);
+	WritePrivateProfileInt("Filters", "Players", ((CMyTrackingWnd*)pWindow)->TrackPlayersCombo->GetCurChoice(), INIFileName);
+	WritePrivateProfileInt("Filters", "Sort", ((CMyTrackingWnd*)pWindow)->TrackSortCombo->GetCurChoice(), INIFileName);
+	WritePrivateProfileInt("Settings", "TrackDistance", TrackDist, INIFileName);
 	WritePrivateProfileString("Settings","DisplayTpl", szNameTemplate, INIFileName);
-	_itoa_s(1 & ((CMyTrackingWnd*)pWindow)->AutoUpdateButton->Checked, szTemp, 10);
-	WritePrivateProfileString("Settings", "AutoRefresh", szTemp, INIFileName);
-	_itoa_s(RefreshTimer, szTemp, 10);
-	WritePrivateProfileString("Settings", "RefreshDelay", szTemp, INIFileName);
+	WritePrivateProfileBool("Settings", "AutoRefresh", ((CMyTrackingWnd*)pWindow)->AutoUpdateButton->Checked, INIFileName);
+	WritePrivateProfileInt("Settings", "RefreshDelay", RefreshTimer, INIFileName);
 }
 
 DWORD STrackSortValue=0;
@@ -616,7 +585,7 @@ void Track(PSPAWNINFO pChar, PCHAR szLine)
 			sprintf_s(szMsg, "Tracking window refresh: %s", TrackingWnd->AutoUpdateButton->Checked ? "on" : "off");
 		}
 		else {
-			RefreshTimer = atoi(Arg2);
+			RefreshTimer = GetIntFromString(Arg2, 0);
 			if (RefreshTimer < 1) RefreshTimer = 1;
 			if (RefreshTimer > 1000) RefreshTimer = 1000;
 			sprintf_s(szMsg,"Tracking window will refresh every %i second(s).", RefreshTimer);

@@ -79,9 +79,6 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MQ2Tracking.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="MQ2Tracking.rc" />
   </ItemGroup>
   <ItemGroup>
